@@ -127,18 +127,10 @@ def init_client(arguments):
     # Verify all WDL tables are present when told they are
     validate_syzygy_exists()
 
-    net_name = "792013" # change manually upon new testing net choice
-    net_path = os.path.join("Engines", net_name)
-
-    if not (os.path.isfile(net_path)):
-        download_file('https://cdn.discordapp.com/attachments/430695662108278784/1015438211708887100/195b450999e874d07aea2c09fd0db5eff9d4441ec1ad5a60a140fe8ea94c4f3a', 792013)
-        shutil.move(str(792013), net_path)
-
 
 def cleanup_client():
 
     SECONDS_PER_DAY   = 60 * 60 * 24
-    SECONDS_PER_MONTH = SECONDS_PER_DAY * 30
 
     file_age = lambda x: time.time() - os.path.getmtime(x)
 
@@ -149,10 +141,6 @@ def cleanup_client():
     for file in os.listdir('Engines'):
         if file_age(os.path.join('Engines', file)) > SECONDS_PER_DAY:
             os.remove(os.path.join('Engines', file))
-
-    for file in os.listdir('Networks'):
-        if file_age(os.path.join('Networks', file)) > SECONDS_PER_MONTH:
-            os.remove(os.path.join('Networks', file))
 
 def validate_syzygy_exists():
 
@@ -678,9 +666,6 @@ def download_engine(arguments, workload, branch, network):
                   " --recurse-submodules " + src_path + " -b " + branch_name
     Popen(git_command.split()).wait()
 
-    # Parse out paths to find the makefile location
-
-
     # Build the engine and drop it into src_path
     print('\nBuilding [%s]' % (final_path))
     command = make_command(arguments, engine, src_path, network)
@@ -732,6 +717,9 @@ def build_cutechess_command(arguments, workload, dev_name, base_name, nps):
     dev_options  = workload['test']['dev' ]['options']
     base_options = workload['test']['base']['options']
 
+    dev_network  = workload['test']['dev' ]['network']
+    base_network = workload['test']['base']['network']
+
     dev_threads  = int(re.search('(?<=Threads=)\d*', dev_options ).group())
     base_threads = int(re.search('(?<=Threads=)\d*', base_options).group())
 
@@ -748,8 +736,8 @@ def build_cutechess_command(arguments, workload, dev_name, base_name, nps):
 
     flags  = '-repeat -recover -resign %s -draw %s '
     flags += '-srand %d -variant %s -concurrency %d -games %d '
-    flags += '-engine dir=Engines/ cmd=./%s proto=uci tc=%s%s name=%s '
-    flags += '-engine dir=Engines/ cmd=./%s proto=uci tc=%s%s name=%s '
+    flags += '-engine dir=Engines/ cmd=./%s proto=uci tc=%s%s name=%s option.WeightsFile=Networks/%s '
+    flags += '-engine dir=Engines/ cmd=./%s proto=uci tc=%s%s name=%s option.WeightsFile=Networks/%s '
     flags += '-openings file=Books/%s format=%s order=random plies=16 '
     flags += '-pgnout PGNs/%s_vs_%s '
 
@@ -767,8 +755,8 @@ def build_cutechess_command(arguments, workload, dev_name, base_name, nps):
     args = (
         'movecount=3 score=400', 'movenumber=40 movecount=8 score=10',
         int(time.time()), variant, concurrency, games,
-        dev_name, time_control, dev_options, dev_name.rstrip('.exe'),
-        base_name, time_control, base_options, base_name.rstrip('.exe'),
+        dev_name, time_control, dev_options, dev_name.rstrip('.exe'), dev_network,
+        base_name, time_control, base_options, base_name.rstrip('.exe'), base_network,
         book_name, book_name.split('.')[-1],
         dev_name.rstrip('.exe'), base_name.rstrip('.exe')
     )
