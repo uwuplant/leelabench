@@ -865,7 +865,7 @@ if __name__ == '__main__':
     if arguments.fleet:
         FLEET_MODE = True
         
-    arguments.threads = max(arguments.threads, 2)
+    arguments.threads = max(int(arguments.threads), 2)
 
     check_for_utilities()
     init_client(arguments)
