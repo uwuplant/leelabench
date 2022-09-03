@@ -549,8 +549,8 @@ def check_workload_response(arguments, response):
 
 def complete_workload(arguments, workload):
 
-    dev_network  = download_network_weights(arguments, workload, 'dev')
-    base_network = download_network_weights(arguments, workload, 'base')
+    dev_network  = download_network_weights(arguments, workload, 'dev', False)
+    base_network = download_network_weights(arguments, workload, 'base', False)
 
     dev_name  = download_engine(arguments, workload, 'dev', dev_network)
     base_name = download_engine(arguments, workload, 'base', base_network)
@@ -601,15 +601,16 @@ def download_opening_book(arguments, workload):
     if book_sha256 != sha256:
         raise Exception('Invalid SHA for %s' % (book_name))
 
-def download_network_weights(arguments, workload, branch):
+def download_network_weights(arguments, workload, branch, is_bench):
 
     # Some tests may not use Neural Networks
     network_name = workload['test'][branch]['network']
     if not network_name or network_name == 'None': return None
 
     # Log that we are obtaining a Neural Network
-    pattern = 'Fetching Neural Network [ %s, %-4s ]'
-    print(pattern % (network_name, branch.upper()))
+    if not is_bench:
+        pattern = 'Fetching Neural Network [ %s, %-4s ]'
+        print(pattern % (network_name, branch.upper()))
 
     # Neural Network requests require authorization
     payload = {
@@ -690,6 +691,9 @@ def download_engine(arguments, workload, branch, network):
 
 def run_benchmarks(arguments, workload, branch, engine):
 
+    shutil.move(download_network_weights(arguments, workload, branch, True),
+                "Engines/" + workload['test'][branch]['network'])
+
     cores = 1
     queue = multiprocessing.Queue()
     name  = workload['test'][branch]['name']
@@ -705,6 +709,8 @@ def run_benchmarks(arguments, workload, branch, engine):
 
     print('Bench for %s is %d' % (name, bench[0]))
     print('Speed for %s is %d' % (name, sum(nps) // cores))
+
+    os.remove("Engines/" + workload['test'][branch]['network'])
     return bench[0], sum(nps) // cores
 
 def verify_benchmarks(arguments, workload, branch, bench):
