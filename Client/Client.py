@@ -248,7 +248,7 @@ def run_bench(engine, outqueue):
 
     try:
         # Launch the engine and parse output for statistics
-        process = Popen(['./' + engine, 'benchmark', '--num-positions=5', '--movetime=1000'], stdout=PIPE, stderr=PIPE)
+        process = Popen(['./' + engine, 'benchmark', '--num-positions=5', '--nodes=20000'], stdout=PIPE, stderr=PIPE)
         stdout, stderr = process.communicate()
         outqueue.put(parse_bench_output(stdout))
     except Exception: outqueue.put((0, 0))
@@ -691,7 +691,7 @@ def download_engine(arguments, workload, branch, network):
 
 def run_benchmarks(arguments, workload, branch, engine):
 
-    shutil.move(download_network_weights(arguments, workload, branch, True),
+    shutil.copy("Networks/" + workload['test'][branch]['network'],
                 "Engines/" + workload['test'][branch]['network'])
 
     cores = 1
