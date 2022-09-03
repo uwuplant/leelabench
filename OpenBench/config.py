@@ -27,7 +27,7 @@ OPENBENCH_CONFIG = {
 
     # Generic Error Messages useful to those setting up their own instance
     'error' : {
-        'disabled' : 'Account has not been enabled. Contact andrew@grantnet.us',
+        'disabled' : 'Account has not been enabled. Contact Plutie#8218 if this doesn\'t disappear in the next few hours,',
         'fakeuser' : 'This is not a real OpenBench User. Create an OpenBench account',
     },
 
@@ -94,7 +94,7 @@ OPENBENCH_CONFIG = {
 
         'lc0' : {
 
-            'nps'    : 8000,
+            'nps'    : 20000,
             'base'   : 'master',
             'book'   : 'Pohl.epd',
             'bounds' : '[0.00, 5.00]',
