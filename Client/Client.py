@@ -52,7 +52,7 @@ TIMEOUT_WORKLOAD    = 30    # Timeout in seconds between workload requests
 CLIENT_VERSION      = '2'   # Client version to send to the Server
 
 SYZYGY_WDL_PATH     = None  # Pathway to WDL Syzygy Tables
-BASE_GAMES_PER_CORE = 4    # Typical games played per-thread
+BASE_GAMES_PER_CORE = 32    # Typical games played per-thread
 FLEET_MODE          = False # Exit when there are no workloads
 
 CUSTOM_SETTINGS = {
