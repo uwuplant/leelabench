@@ -52,7 +52,7 @@ TIMEOUT_WORKLOAD    = 30    # Timeout in seconds between workload requests
 CLIENT_VERSION      = '2'   # Client version to send to the Server
 
 SYZYGY_WDL_PATH     = None  # Pathway to WDL Syzygy Tables
-BASE_GAMES_PER_CORE = 32    # Typical games played per-thread
+BASE_GAMES_PER_CORE = 4    # Typical games played per-thread
 FLEET_MODE          = False # Exit when there are no workloads
 
 CUSTOM_SETTINGS = {
@@ -64,7 +64,7 @@ CUSTOM_SETTINGS = {
     'Seer'        : [], 'Koivisto'  : [],
     'Drofa'       : [], 'Bit-Genie' : [],
     'Berserk'     : [], 'Zahak'     : [],
-    'BlackMarlin' : [],
+    'BlackMarlin' : [], 'lc0'       : []
 };
 
 ERRORS = {
@@ -126,6 +126,14 @@ def init_client(arguments):
 
     # Verify all WDL tables are present when told they are
     validate_syzygy_exists()
+
+    net_name = "792013" # change manually upon new testing net choice
+    net_path = os.path.join("Engines", net_name)
+
+    if not (os.path.isfile(net_path)):
+        download_file('https://cdn.discordapp.com/attachments/430695662108278784/1015438211708887100/195b450999e874d07aea2c09fd0db5eff9d4441ec1ad5a60a140fe8ea94c4f3a', 792013)
+        shutil.move(str(792013), net_path)
+
 
 def cleanup_client():
 
@@ -218,7 +226,6 @@ def download_file(source, outname, post_data=None):
     with open(outname, 'wb') as fout:
         for chunk in request.iter_content(chunk_size=1024):
             if chunk: fout.write(chunk)
-        fout.flush()
 
 def unzip_delete_file(source, outdir):
     with zipfile.ZipFile(source) as fin:
@@ -228,15 +235,7 @@ def unzip_delete_file(source, outdir):
 
 def make_command(arguments, engine, src_path, network_path):
 
-    command = 'make CC=%s EXE=%s -j%s' % (
-        COMPILERS[engine], engine, arguments.threads)
-
-    if engine in CUSTOM_SETTINGS:
-        command += ' '.join(CUSTOM_SETTINGS[engine])
-
-    if network_path != None:
-        path = os.path.relpath(os.path.abspath(network_path), src_path)
-        command += ' EVALFILE=%s' % (path.replace('\\', '/'))
+    command = './build.sh'
 
     return command.split()
 
@@ -247,25 +246,21 @@ def parse_bench_output(stream):
 
         # Try to match a wide array of patterns
         line = re.sub(r'[^a-zA-Z0-9 ]+', ' ', line)
-        nps_pattern = r'([0-9]+ NPS)|(NPS[ ]+[0-9]+)'
-        bench_pattern = r'([0-9]+ NODES)|(NODES[ ]+[0-9]+)'
+        nps_pattern = r'([0-9]+ NPS)|(Nodes/second[ ]+:[ ]+[0-9]+)'
         re_nps = re.search(nps_pattern, line.upper())
-        re_bench = re.search(bench_pattern, line.upper())
 
         # Replace only if not already found earlier
         if not nps and re_nps: nps = re_nps.group()
-        if not bench and re_bench: bench = re_bench.group()
 
     # Parse out the integer portion from our matches
     nps = int(re.search(r'[0-9]+', nps).group()) if nps else None
-    bench = int(re.search(r'[0-9]+', bench).group()) if bench else None
-    return (nps, bench)
+    return (nps, 0)
 
 def run_bench(engine, outqueue):
 
     try:
         # Launch the engine and parse output for statistics
-        process = Popen(['./' + engine, 'bench'], stdout=PIPE, stderr=PIPE)
+        process = Popen(['./' + engine, 'benchmark', '--num-positions=5', '--movetime=1000'], stdout=PIPE, stderr=PIPE)
         stdout, stderr = process.communicate()
         outqueue.put(parse_bench_output(stdout))
     except Exception: outqueue.put((0, 0))
@@ -674,20 +669,23 @@ def download_engine(arguments, workload, branch, network):
     if os.path.isfile(final_path): return final_name
     if os.path.isfile(final_path + '.exe'): return final_name + '.exe'
 
+    tokens = source.split('/')
+    unzip_name = '%s-%s' % (tokens[-3], tokens[-1].rstrip('.zip'))
+    src_path = os.path.join('tmp', unzip_name, *build_path.split('/'))
+
     # Download and unzip the source from Github
-    download_file(source, '%s.zip' % (engine))
-    unzip_delete_file('%s.zip' % (engine), 'tmp/')
+    git_command = "/usr/bin/git clone " + source.split("archive")[0] +\
+                  " --recurse-submodules " + src_path + " -b " + branch_name
+    Popen(git_command.split()).wait()
 
     # Parse out paths to find the makefile location
-    tokens     = source.split('/')
-    unzip_name = '%s-%s' % (tokens[-3], tokens[-1].rstrip('.zip'))
-    src_path   = os.path.join('tmp', unzip_name, *build_path.split('/'))
+
 
     # Build the engine and drop it into src_path
     print('\nBuilding [%s]' % (final_path))
     command = make_command(arguments, engine, src_path, network)
     Popen(command, cwd=src_path).wait()
-    output_name = os.path.join(src_path, engine)
+    output_name = os.path.join(src_path, "build/release/", engine)
 
     # Move the file to the final location ( Linux )
     if os.path.isfile(output_name):
@@ -707,7 +705,7 @@ def download_engine(arguments, workload, branch, network):
 
 def run_benchmarks(arguments, workload, branch, engine):
 
-    cores = int(arguments.threads)
+    cores = 1
     queue = multiprocessing.Queue()
     name  = workload['test'][branch]['name']
     print('\nRunning %dx Benchmarks for %s' % (cores, name))
@@ -758,11 +756,11 @@ def build_cutechess_command(arguments, workload, dev_name, base_name, nps):
     if SYZYGY_WDL_PATH and workload['test']['syzygy_adj'] != 'DISABLED':
         flags += '-tb %s' % (SYZYGY_WDL_PATH.replace('\\', '\\\\'))
 
-    concurrency = int(arguments.threads) // max(dev_threads, base_threads)
+    concurrency = 1
     update_interval = 8 if max(dev_threads, base_threads) == 1 else 1
 
-    games = int(concurrency * BASE_GAMES_PER_CORE)
-    games = max(8, concurrency * 2, games - (games % (2 * concurrency)))
+    games = int(BASE_GAMES_PER_CORE)
+    games = max(8, 1, games - (games % 2))
 
     time_control = scale_time_control(workload, nps)
 
