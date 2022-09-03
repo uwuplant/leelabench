@@ -717,8 +717,8 @@ def build_cutechess_command(arguments, workload, dev_name, base_name, nps):
     dev_options  = workload['test']['dev' ]['options']
     base_options = workload['test']['base']['options']
 
-    dev_network  = workload['test']['dev' ]['network']
-    base_network = workload['test']['base']['network']
+    dev_network_path  = os.getcwd() + '/' + workload['test']['dev' ]['network']
+    base_network_path = os.getcwd() + '/' + workload['test']['base']['network']
 
     dev_threads  = int(re.search('(?<=Threads=)\d*', dev_options ).group())
     base_threads = int(re.search('(?<=Threads=)\d*', base_options).group())
@@ -736,8 +736,8 @@ def build_cutechess_command(arguments, workload, dev_name, base_name, nps):
 
     flags  = '-repeat -recover -resign %s -draw %s '
     flags += '-srand %d -variant %s -concurrency %d -games %d '
-    flags += '-engine dir=Engines/ cmd=./%s proto=uci tc=%s%s name=%s option.WeightsFile=Networks/%s '
-    flags += '-engine dir=Engines/ cmd=./%s proto=uci tc=%s%s name=%s option.WeightsFile=Networks/%s '
+    flags += '-engine dir=Engines/ cmd=./%s proto=uci tc=%s%s name=%s option.WeightsFile=%s '
+    flags += '-engine dir=Engines/ cmd=./%s proto=uci tc=%s%s name=%s option.WeightsFile=%s '
     flags += '-openings file=Books/%s format=%s order=random plies=16 '
     flags += '-pgnout PGNs/%s_vs_%s '
 
@@ -755,8 +755,8 @@ def build_cutechess_command(arguments, workload, dev_name, base_name, nps):
     args = (
         'movecount=3 score=400', 'movenumber=40 movecount=8 score=10',
         int(time.time()), variant, concurrency, games,
-        dev_name, time_control, dev_options, dev_name.rstrip('.exe'), dev_network,
-        base_name, time_control, base_options, base_name.rstrip('.exe'), base_network,
+        dev_name, time_control, dev_options, dev_name.rstrip('.exe'), dev_network_path,
+        base_name, time_control, base_options, base_name.rstrip('.exe'), base_network_path,
         book_name, book_name.split('.')[-1],
         dev_name.rstrip('.exe'), base_name.rstrip('.exe')
     )
