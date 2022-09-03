@@ -94,7 +94,7 @@ OPENBENCH_CONFIG = {
 
         'lc0' : {
 
-            'nps'    : 20000,
+            'nps'    : 25000,
             'base'   : 'master',
             'book'   : 'Pohl.epd',
             'bounds' : '[0.00, 5.00]',
