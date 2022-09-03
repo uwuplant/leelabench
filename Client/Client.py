@@ -717,8 +717,8 @@ def build_cutechess_command(arguments, workload, dev_name, base_name, nps):
     dev_options  = workload['test']['dev' ]['options']
     base_options = workload['test']['base']['options']
 
-    dev_network_path  = os.getcwd() + '/' + workload['test']['dev' ]['network']
-    base_network_path = os.getcwd() + '/' + workload['test']['base']['network']
+    dev_network_path  = os.getcwd() + '/Networks/' + workload['test']['dev' ]['network']
+    base_network_path = os.getcwd() + '/Networks/' + workload['test']['base']['network']
 
     dev_threads  = int(re.search('(?<=Threads=)\d*', dev_options ).group())
     base_threads = int(re.search('(?<=Threads=)\d*', base_options).group())
