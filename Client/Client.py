@@ -248,7 +248,7 @@ def run_bench(engine, outqueue):
 
     try:
         # Launch the engine and parse output for statistics
-        process = Popen(['./' + engine, 'benchmark', '--num-positions=5', '--nodes=20000'], stdout=PIPE, stderr=PIPE)
+        process = Popen(['./' + engine, 'benchmark', '--num-positions=5', '--nodes=125000'], stdout=PIPE, stderr=PIPE)
         stdout, stderr = process.communicate()
         outqueue.put(parse_bench_output(stdout))
     except Exception: outqueue.put((0, 0))
