@@ -31,8 +31,7 @@ import zipfile
 import shutil
 import multiprocessing
 
-from subprocess import PIPE, Popen, call
-
+from subprocess import PIPE, Popen, call, STDOUT
 from itertools import combinations_with_replacement
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -49,7 +48,7 @@ from itertools import combinations_with_replacement
 TIMEOUT_HTTP        = 30    # Timeout in seconds for HTTP requests
 TIMEOUT_ERROR       = 10    # Timeout in seconds when any errors are thrown
 TIMEOUT_WORKLOAD    = 30    # Timeout in seconds between workload requests
-CLIENT_VERSION      = '2'   # Client version to send to the Server
+CLIENT_VERSION      = '3'   # Client version to send to the Server
 
 SYZYGY_WDL_PATH     = None  # Pathway to WDL Syzygy Tables
 BASE_GAMES_PER_CORE = 32    # Typical games played per-thread
@@ -127,10 +126,10 @@ def init_client(arguments):
     # Verify all WDL tables are present when told they are
     validate_syzygy_exists()
 
-
 def cleanup_client():
 
     SECONDS_PER_DAY   = 60 * 60 * 24
+    SECONDS_PER_MONTH = SECONDS_PER_DAY * 30
 
     file_age = lambda x: time.time() - os.path.getmtime(x)
 
@@ -141,6 +140,10 @@ def cleanup_client():
     for file in os.listdir('Engines'):
         if file_age(os.path.join('Engines', file)) > SECONDS_PER_DAY:
             os.remove(os.path.join('Engines', file))
+
+    for file in os.listdir('Networks'):
+        if file_age(os.path.join('Networks', file)) > SECONDS_PER_MONTH:
+            os.remove(os.path.join('Networks', file))
 
 def validate_syzygy_exists():
 
@@ -214,6 +217,7 @@ def download_file(source, outname, post_data=None):
     with open(outname, 'wb') as fout:
         for chunk in request.iter_content(chunk_size=1024):
             if chunk: fout.write(chunk)
+        fout.flush()
 
 def unzip_delete_file(source, outdir):
     with zipfile.ZipFile(source) as fin:
@@ -287,6 +291,23 @@ def kill_cutechess(cutechess):
 
     except Exception:
         pass
+
+def find_pgn_error(reason, command):
+
+    pgn_file = command.split('-pgnout ')[1].split()[0]
+    with open(pgn_file, 'r') as fin:
+        data = fin.readlines()
+
+    reason = reason.split('{')[1]
+    for ii in range(len(data) - 1, -1, -1):
+        if reason in data[ii]:
+            break
+
+    pgn = ""
+    while "[Event " not in data[ii]:
+        pgn = data[ii] + pgn
+        ii = ii - 1
+    return data[ii] + pgn
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #                                                                           #
@@ -427,14 +448,15 @@ def server_request_workload(arguments):
     target = url_join(arguments.server, 'clientGetWorkload')
     return requests.post(target, data=payload, timeout=TIMEOUT_HTTP)
 
-def server_report_build_fail(arguments, workload, branch):
+def server_report_build_fail(arguments, workload, branch, compiler_output):
 
     payload = {
         'username'  : arguments.username,
         'password'  : arguments.password,
         'testid'    : workload['test']['id'],
         'machineid' : workload['machine']['id'],
-        'error'     : '%s build failed' % (workload['test'][branch]['name'])
+        'error'     : '%s build failed' % (workload['test'][branch]['name']),
+        'logs'      : compiler_output,
     }
 
     target = url_join(arguments.server, 'clientSubmitError')
@@ -466,7 +488,7 @@ def server_report_nps(arguments, workload, dev_nps, base_nps):
     target = url_join(arguments.server, 'clientSubmitNPS')
     requests.post(target, data=data, timeout=TIMEOUT_ERROR)
 
-def server_report_engine_error(arguments, workload, cutechess_str):
+def server_report_engine_error(arguments, workload, cutechess_str, pgn):
 
     pairing = cutechess_str.split('(')[1].split(')')[0]
     white, black = pairing.split(' vs ')
@@ -476,11 +498,12 @@ def server_report_engine_error(arguments, workload, cutechess_str):
     error = error.replace('Black', '-'.join(black.split('-')[1:]).rstrip())
 
     payload = {
-        'username' : arguments.username,
-        'password' : arguments.password,
+        'username'  : arguments.username,
+        'password'  : arguments.password,
         'testid'    : workload['test']['id'],
         'machineid' : workload['machine']['id'],
-        'error'    : error,
+        'error'     : error,
+        'logs'      : pgn,
     }
 
     target = url_join(arguments.server, 'clientSubmitError')
@@ -549,8 +572,8 @@ def check_workload_response(arguments, response):
 
 def complete_workload(arguments, workload):
 
-    dev_network  = download_network_weights(arguments, workload, 'dev', False)
-    base_network = download_network_weights(arguments, workload, 'base', False)
+    dev_network  = download_network_weights(arguments, workload, 'dev')
+    base_network = download_network_weights(arguments, workload, 'base')
 
     dev_name  = download_engine(arguments, workload, 'dev', dev_network)
     base_name = download_engine(arguments, workload, 'base', base_network)
@@ -601,16 +624,15 @@ def download_opening_book(arguments, workload):
     if book_sha256 != sha256:
         raise Exception('Invalid SHA for %s' % (book_name))
 
-def download_network_weights(arguments, workload, branch, is_bench):
+def download_network_weights(arguments, workload, branch):
 
     # Some tests may not use Neural Networks
     network_name = workload['test'][branch]['network']
     if not network_name or network_name == 'None': return None
 
     # Log that we are obtaining a Neural Network
-    if not is_bench:
-        pattern = 'Fetching Neural Network [ %s, %-4s ]'
-        print(pattern % (network_name, branch.upper()))
+    pattern = 'Fetching Neural Network [ %s, %-4s ]'
+    print(pattern % (network_name, branch.upper()))
 
     # Neural Network requests require authorization
     payload = {
@@ -658,20 +680,22 @@ def download_engine(arguments, workload, branch, network):
     if os.path.isfile(final_path): return final_name
     if os.path.isfile(final_path + '.exe'): return final_name + '.exe'
 
-    tokens = source.split('/')
-    unzip_name = '%s-%s' % (tokens[-3], tokens[-1].rstrip('.zip'))
-    src_path = os.path.join('tmp', unzip_name, *build_path.split('/'))
-
     # Download and unzip the source from Github
-    git_command = "/usr/bin/git clone " + source.split("archive")[0] +\
-                  " --recurse-submodules " + src_path + " -b " + branch_name
-    Popen(git_command.split()).wait()
+    download_file(source, '%s.zip' % (engine))
+    unzip_delete_file('%s.zip' % (engine), 'tmp/')
+
+    # Parse out paths to find the makefile location
+    tokens     = source.split('/')
+    unzip_name = '%s-%s' % (tokens[-3], tokens[-1].rstrip('.zip'))
+    src_path   = os.path.join('tmp', unzip_name, *build_path.split('/'))
 
     # Build the engine and drop it into src_path
     print('\nBuilding [%s]' % (final_path))
+    output_name = os.path.join(src_path, engine)
     command = make_command(arguments, engine, src_path, network)
-    Popen(command, cwd=src_path).wait()
-    output_name = os.path.join(src_path, "build/release/", engine)
+    process = Popen(command, cwd=src_path, stdout=PIPE, stderr=STDOUT)
+    compiler_output = process.communicate()[0].decode('utf-8')
+    print (compiler_output)
 
     # Move the file to the final location ( Linux )
     if os.path.isfile(output_name):
@@ -686,7 +710,7 @@ def download_engine(arguments, workload, branch, network):
         return final_name + '.exe'
 
     # Notify the server if the build failed
-    server_report_build_fail(arguments, workload, branch)
+    server_report_build_fail(arguments, workload, branch, compiler_output)
     return None
 
 def run_benchmarks(arguments, workload, branch, engine):
@@ -799,7 +823,8 @@ def run_and_parse_cutechess(arguments, workload, concurrency, update_interval, c
         # Forcefully report any engine failures to the server
         for error in errors:
             if error in score_reason:
-                server_report_engine_error(arguments, workload, line)
+                pgn = find_pgn_error(score_reason, command)
+                server_report_engine_error(arguments, workload, line, pgn)
 
         # All remaining processing is for score updates only
         if not line.startswith('Score of'):
