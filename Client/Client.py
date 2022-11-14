@@ -692,8 +692,10 @@ def download_engine(arguments, workload, branch, network):
     # Build the engine and drop it into src_path
     print('\nBuilding [%s]' % (final_path))
     output_name = os.path.join(src_path, engine)
-    command = make_command(arguments, engine, src_path, network)
-    process = Popen(command, cwd=src_path, stdout=PIPE, stderr=STDOUT)
+    command1 = "git submodule update --init --recursive".split()
+    command2 = make_command(arguments, engine, src_path, network)
+    process = Popen(command1, cwd=src_path, stdout=PIPE, stderr=STDOUT)
+    process = Popen(command2, cwd=src_path, stdout=PIPE, stderr=STDOUT)
     compiler_output = process.communicate()[0].decode('utf-8')
     print (compiler_output)
 
