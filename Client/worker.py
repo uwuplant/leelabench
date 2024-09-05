@@ -1106,7 +1106,7 @@ def safe_run_benchmarks(config, branch, engine, network):
     try:
         print('\nRunning Benchmarks for %s' % (name))
         speed, nodes = bench.run_benchmark(
-            binary, network, private, 1, 1, name, expected)
+            binary, network, private, 1, 1, config.workload['test'][branch]['engine'], expected)
 
     except OpenBenchBadBenchException as error:
         ServerReporter.report_bad_bench(config, error.message)

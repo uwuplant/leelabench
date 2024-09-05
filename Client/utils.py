@@ -162,18 +162,16 @@ def check_for_engine_binary(out_path):
 def makefile_command(net_path, make_path, out_path, compiler):
 
     # # Build with -j, and EXE= to contol the output location
-    # command = ['make', '-j', 'EXE=%s' % (out_path)]
+    command = ['make', '-j', 'EXE=%s' % (out_path)]
 
     # # Build with CC/CXX= when using a custom compiler
-    # if compiler:
-    #     comp_flag = ['CC', 'CXX']['++' in compiler]
-    #     command  += ['%s=%s' % (comp_flag, compiler)]
+    if compiler:
+        comp_flag = ['CC', 'CXX']['++' in compiler]
+        command  += ['%s=%s' % (comp_flag, compiler)]
 
     # # Build with EVALFILE= to embed NNUE files
-    # if net_path:
-    #     command += ['EVALFILE=%s' % (os.path.abspath(net_path).replace('\\', '/'))]
-
-    command = './build.sh'
+    if net_path:
+        command += ['EVALFILE=%s' % (os.path.abspath(net_path).replace('\\', '/'))]
 
     return command
 
