@@ -186,8 +186,7 @@ def getMachineStatus(username=None):
         machines = machines.filter(user__username=username)
 
     return ": {0} Machines / ".format(len(machines)) + \
-           "{0} Threads / ".format(sum([f.info['concurrency'] for f in machines])) + \
-           "{0} MNPS ".format(round(sum([f.info['concurrency'] * f.mnps for f in machines]), 2))
+           "{0} KNPS ".format(round(sum([f.mnps * 1000.0 for f in machines]), 2))
 
 def getPaging(content, page, url, pagelen=25):
 

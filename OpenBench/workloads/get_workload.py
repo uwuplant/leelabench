@@ -107,7 +107,7 @@ def filter_valid_workloads(request, machine):
         workloads = workloads.exclude(syzygy_wdl='%d-MAN' % (K))
 
     # Skip workloads that we have insufficient threads to play
-    options = [x for x in workloads if valid_hardware_assignment(x, machine)]
+    options = [x for x in workloads]
 
     # Possible that no work exists for the machine
     if not options:
@@ -350,7 +350,7 @@ def game_distribution(test, machine):
     max_concurrency = (worker_threads // worker_sockets) // max(dev_threads, base_threads)
 
     # Number of params being evaluated at a single time, if doing SPSA in SINGLE mode
-    spsa_count = (worker_threads // max(dev_threads, base_threads)) // 2
+    spsa_count = 1
 
     # SPSA is treated specially, if we are distributing many parameter sets at once
     is_multiple_spsa = test.test_mode == 'SPSA' and test.spsa['distribution_type'] == 'MULTIPLE'
