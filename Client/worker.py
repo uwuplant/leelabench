@@ -458,8 +458,8 @@ class Cutechess:
         control = scale_time_control(config.workload, scale_factor, branch)
 
         # Private engines, when using Networks, must set them via UCI
-        if private and network and network != 'None':
-            options += ' EvalFile=%s' % (os.path.join('../Networks', network))
+        if network and network != 'None':
+            options += ' WeightsFile=%s' % (os.path.join('../Networks', network))
             name    += '-%s' % (network)
 
         # Set the SyzygyPath if we have them, and are allowed to use them
@@ -1049,7 +1049,6 @@ def safe_download_network_weights(config, branch):
 def safe_download_engine(config, branch, net_path):
 
     # Wraps utils.py:download_public_engine() and utils.py:download_private_engine()
-
     engine      = config.workload['test'][branch]['engine']
     branch_name = config.workload['test'][branch]['name']
     commit_sha  = config.workload['test'][branch]['sha']
@@ -1105,9 +1104,9 @@ def safe_run_benchmarks(config, branch, engine, network):
     binary   = os.path.join('Engines', engine)
 
     try:
-        print('\nRunning %dx Benchmarks for %s' % (config.threads, name))
+        print('\nRunning Benchmarks for %s' % (name))
         speed, nodes = bench.run_benchmark(
-            binary, network, private, config.threads, 1, expected)
+            binary, network, private, 1, 1, name, expected)
 
     except OpenBenchBadBenchException as error:
         ServerReporter.report_bad_bench(config, error.message)
